@@ -4,7 +4,7 @@
 // repeatable (no screen recording). Needs Chromium for Playwright and ffmpeg (libx264, libvpx-vp9).
 //   node video/render.mjs                 # all cases
 //   node video/render.mjs newsroom        # one case
-// Env: SCALE (default 1.5 → 1920×1080), FPS (30), SECONDS (14), POSTER_AT (seconds, default 11.6).
+// Flags: --scale=1.5 (1920×1080), --fps=30, --seconds=14, --poster-at=11.6 (seconds).
 import { execFile } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -15,13 +15,17 @@ import { chromium } from "@playwright/test";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const out = join(here, "..", "public", "use-cases");
-const cases = process.argv.slice(2).length
-  ? process.argv.slice(2)
-  : ["newsroom", "evidence", "viral"];
-const SCALE = Number(process.env.SCALE ?? 1.5);
-const FPS = Number(process.env.FPS ?? 30);
-const SECONDS = Number(process.env.SECONDS ?? 14);
-const POSTER_AT = Number(process.env.POSTER_AT ?? 11.6);
+const args = process.argv.slice(2);
+const flag = (name, fallback) => {
+  const a = args.find((x) => x.startsWith(`--${name}=`));
+  return a ? Number(a.slice(name.length + 3)) : fallback;
+};
+const named = args.filter((x) => !x.startsWith("--"));
+const cases = named.length ? named : ["newsroom", "evidence", "viral"];
+const SCALE = flag("scale", 1.5);
+const FPS = flag("fps", 30);
+const SECONDS = flag("seconds", 14);
+const POSTER_AT = flag("poster-at", 11.6);
 mkdirSync(out, { recursive: true });
 const run = promisify(execFile);
 

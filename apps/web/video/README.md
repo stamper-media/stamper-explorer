@@ -15,7 +15,7 @@ frame's time, so the output is exact and repeatable:
 ```sh
 node video/render.mjs            # all three → public/use-cases/<case>.mp4, .webm, .jpg (poster)
 node video/render.mjs viral      # one case
-SCALE=1 node video/render.mjs    # 1280×720 instead of 1920×1080
+node video/render.mjs --scale=1  # 1280×720 instead of 1920×1080
 ```
 
 It needs Playwright's Chromium and `ffmpeg` with libx264 and libvpx-vp9. Open
