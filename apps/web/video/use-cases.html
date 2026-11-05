@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Stamper use cases (video source)</title>
+<!--
+  Source of the use-case videos on the Explorer home (public/use-cases/*.mp4|webm|jpg).
+  Three 14 s scenes on a 1280×720 stage, all motion in CSS animations so render.mjs can step them
+  frame by frame (document.getAnimations() → currentTime). Open with ?case=newsroom|evidence|viral.
+  Codes, names and the newspaper are illustrations, except the harbour photo: that is the
+  Calibration demo stamp T1AQ-QJ5V-3, and its edited copy is the one the Explorer's example uses.
+-->
+<style>
+@font-face { font-family: "Instrument Sans"; src: url(../public/fonts/InstrumentSans-Variable.woff2) format("woff2"); font-weight: 400 700; }
+@font-face { font-family: "Martian Mono"; src: url(../public/fonts/MartianMono-Variable.woff2) format("woff2"); font-weight: 100 800; }
+@property --day { syntax: "<integer>"; inherits: true; initial-value: 1; }
+@property --sec { syntax: "<integer>"; inherits: true; initial-value: 0; }
+:root {
+  --bg: #0d0a12; --raised: #17131e; --sunken: #09070d; --line: #2b2534; --line-strong: #6e6679;
+  --ink: #eeebf3; --muted: #b0aabb; --subtle: #918a9d;
+  --magenta: #f227f5; --magenta-text: #ff6efb; --on-magenta: #120e1a;
+  --ok: #4fd6a0; --ok-tint: #0f2a20; --crit: #ff6b74; --paper: #f6f5f8; --paper-ink: #120e1a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); }
+.stage {
+  position: relative; width: 1280px; height: 720px; overflow: hidden; display: none;
+  background: radial-gradient(75% 65% at 50% 38%, #2c1236 0%, #160d1c 45%, var(--bg) 75%);
+  color: var(--ink); font-family: "Instrument Sans", sans-serif;
+}
+.stage.on { display: block; }
+.abs { position: absolute; }
+.mono { font-family: "Martian Mono", monospace; }
+.label { font: 500 13px/1 "Martian Mono", monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--magenta-text); }
+.case-label { left: 56px; top: 46px; }
+.brand { right: 56px; top: 38px; height: 26px; }
+.caption {
+  left: 56px; right: 56px; bottom: 54px; font: 600 33px/1.22 "Instrument Sans"; letter-spacing: -.012em;
+  text-wrap: balance;
+}
+.caption em { font-style: normal; color: var(--magenta); }
+
+/* phone */
+.phone {
+  width: 220px; height: 440px; border-radius: 34px; padding: 11px; background: #1d1825;
+  border: 2px solid #3a3346; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.03) inset;
+}
+.screen { position: relative; width: 100%; height: 100%; border-radius: 24px; overflow: hidden; background: var(--sunken); }
+.notch { position: absolute; left: 50%; top: 8px; width: 64px; height: 16px; margin-left: -32px; border-radius: 9px; background: #000; z-index: 5; }
+.fill { position: absolute; inset: 0; }
+.brackets { position: absolute; inset: 22px; pointer-events: none; }
+.brackets i { position: absolute; width: 26px; height: 26px; border: 0 solid var(--magenta); }
+.brackets i:nth-child(1) { left: 0; top: 0; border-top-width: 3px; border-left-width: 3px; }
+.brackets i:nth-child(2) { right: 0; top: 0; border-top-width: 3px; border-right-width: 3px; }
+.brackets i:nth-child(3) { right: 0; bottom: 0; border-bottom-width: 3px; border-right-width: 3px; }
+.brackets i:nth-child(4) { left: 0; bottom: 0; border-bottom-width: 3px; border-left-width: 3px; }
+.sheet {
+  position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 12px; border-radius: 16px;
+  background: rgba(23,19,30,.95); border: 1px solid var(--line);
+}
+.pill { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border-radius: 11px; font: 700 10px/1 "Martian Mono"; letter-spacing: .1em; }
+.pill.mag { background: var(--magenta); color: var(--on-magenta); }
+.pill.ok { background: var(--ok-tint); color: var(--ok); border: 1px solid #1f5a43; }
+.code { font: 600 17px/1 "Martian Mono"; letter-spacing: .06em; color: var(--ink); }
+.type { display: inline-block; overflow: hidden; white-space: nowrap; vertical-align: bottom; }
+.shot { position: absolute; inset: 0; background: #fff; opacity: 0; }
+.scanline { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--magenta); box-shadow: 0 0 18px var(--magenta); opacity: 0; }
+.rec { left: 34px; top: 38px; font: 600 11px/1 "Martian Mono"; color: #fff; display: flex; gap: 6px; align-items: center; z-index: 4; }
+.rec b { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ff3b47; }
+.tc::after { counter-reset: s var(--sec); content: "00:00:" counter(s, decimal-leading-zero); }
+.day::after { counter-reset: d var(--day); content: counter(d); }
+
+/* newspaper */
+.paper {
+  width: 520px; height: 440px; padding: 22px 24px; border-radius: 6px; background: var(--paper); color: var(--paper-ink);
+  box-shadow: 0 30px 80px rgba(0,0,0,.55);
+}
+.masthead { font: 700 30px/1 "Instrument Sans"; letter-spacing: -.02em; text-align: center; }
+.dateline { margin-top: 8px; padding: 6px 0; border-top: 2px solid var(--paper-ink); border-bottom: 1px solid var(--paper-ink); font: 500 9px/1 "Martian Mono"; letter-spacing: .14em; display: flex; justify-content: space-between; }
+.hl { height: 14px; border-radius: 2px; background: #2b2534; margin-top: 12px; }
+.bar { height: 6px; border-radius: 2px; background: #c9c5d1; margin-top: 7px; }
+.np-photo { position: relative; margin-top: 12px; height: 178px; border-radius: 3px; overflow: hidden; }
+.np-badge { position: absolute; left: 10px; bottom: 10px; height: 26px; padding: 0 9px; border-radius: 13px; background: rgba(255,255,255,.94); display: flex; gap: 7px; align-items: center; font: 600 10px/1 "Martian Mono"; color: var(--paper-ink); letter-spacing: .04em; }
+.mark { width: 14px; height: 14px; position: relative; }
+.mark::before { content: ""; position: absolute; inset: 0; border: 2px solid currentColor; clip-path: polygon(0 0,40% 0,40% 2px,2px 2px,2px 40%,0 40%,0 0,60% 0,100% 0,100% 40%,calc(100% - 2px) 40%,calc(100% - 2px) 2px,60% 2px,60% 0, 100% 60%,100% 100%,60% 100%,60% calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 60%,100% 60%, 40% 100%,0 100%,0 60%,2px 60%,2px calc(100% - 2px),40% calc(100% - 2px),40% 100%); }
+.mark::after { content: ""; position: absolute; left: 4px; top: 4px; width: 6px; height: 6px; background: var(--magenta); transform: rotate(45deg); }
+.qr { background: #fff; padding: 4px; border-radius: 3px; }
+
+/* panels (Explorer-like) */
+.panel { background: var(--raised); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+.row { display: flex; align-items: center; gap: 10px; font: 500 13px/1.3 "Instrument Sans"; color: var(--muted); padding: 9px 0; border-top: 1px solid var(--line); }
+.row .tick { color: var(--ok); font: 700 13px/1 "Martian Mono"; width: 14px; }
+.hashrow { display: flex; gap: 12px; align-items: center; font: 500 22px/1 "Martian Mono"; color: var(--ink); margin: 10px 0; }
+.hashrow span:first-child { width: 84px; color: var(--subtle); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+.hg { padding: 6px 9px; border-radius: 5px; background: transparent; }
+
+.disk { width: 96px; }
+.photo-card { border-radius: 10px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.55); background: #000; }
+.photo-card img, .copy img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.copy { width: 150px; border-radius: 8px; overflow: hidden; background: var(--raised); border: 1px solid var(--line); box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+.copy .ph { height: 100px; position: relative; overflow: hidden; }
+.copy .tag { padding: 7px 9px; font: 600 9px/1 "Martian Mono"; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.copy.edited { border-color: var(--crit); }
+.copy.edited .tag { color: var(--crit); }
+
+/* end card */
+.end { inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
+.end img.lockup { height: 64px; }
+.end .tag-line { font: 500 15px/1 "Martian Mono"; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.powered { display: inline-flex; align-items: center; gap: 12px; padding: 9px 20px 9px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); }
+.powered img { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 4px #0b2a45; }
+.powered .by { font: 500 11px/1 "Martian Mono"; letter-spacing: .14em; text-transform: uppercase; color: var(--subtle); }
+.powered .nm { font: 600 20px/1 "Instrument Sans"; }
+
+/* keyframes (each element sets its own timing inline) */
+@keyframes inUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+@keyframes inFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes inPop { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
+@keyframes inLeft { from { opacity: 0; transform: translateX(80px); } to { opacity: 1; transform: none; } }
+@keyframes out { to { opacity: 0; } }
+@keyframes outUp { to { opacity: 0; transform: translateY(-18px); } }
+@keyframes flash { 0% { opacity: 0; } 12% { opacity: .95; } 100% { opacity: 0; } }
+@keyframes type { from { width: 0; } to { width: var(--w); } }
+@keyframes scan { 0% { opacity: 0; transform: translateY(0); } 8% { opacity: 1; } 92% { opacity: 1; } 100% { opacity: 0; transform: translateY(var(--h)); } }
+@keyframes focus { from { opacity: .2; transform: scale(1.14); } to { opacity: 1; transform: none; } }
+@keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: .15; } }
+@keyframes pulse { 0% { opacity: .9; transform: scale(.7); } 100% { opacity: 0; transform: scale(1.7); } }
+@keyframes draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes dash { to { stroke-dashoffset: -16; } }
+@keyframes glowOk { from { background: transparent; color: var(--ink); } to { background: var(--ok-tint); color: var(--ok); } }
+@keyframes countDay { from { --day: 1; } to { --day: 1095; } }
+@keyframes countSec { from { --sec: 0; } to { --sec: 12; } }
+@keyframes moveA { to { transform: translate(-300px, 10px) scale(.84); } }
+@keyframes moveNP { to { transform: translate(-400px, 0) scale(.9); } }
+@keyframes moveCard { to { transform: translate(0, -40px) scale(.55); } }
+@keyframes toDrop { to { transform: translate(var(--tx), var(--ty)) scale(1.9); } }
+@keyframes redbox { 0% { opacity: 0; transform: scale(1.6); } 60% { opacity: 1; transform: scale(.95); } 100% { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<svg aria-hidden="true" width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1040" /><stop offset=".55" stop-color="#b8338f" /><stop offset="1" stop-color="#f6a35a" />
+    </linearGradient>
+    <linearGradient id="smoke" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b1622" /><stop offset=".6" stop-color="#4a3a48" /><stop offset="1" stop-color="#8d6b5c" />
+    </linearGradient>
+  </defs>
+  <!-- a street at dusk with a crowd and a banner (newsroom) -->
+  <symbol id="city" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
+    <rect width="300" height="400" fill="url(#dusk)" />
+    <circle cx="210" cy="150" r="34" fill="#ffd2a1" opacity=".9" />
+    <g fill="#1a1024">
+      <rect x="0" y="170" width="46" height="230" /><rect x="40" y="120" width="40" height="280" />
+      <rect x="78" y="190" width="50" height="210" /><rect x="190" y="140" width="44" height="260" />
+      <rect x="230" y="200" width="70" height="200" /><rect x="128" y="230" width="62" height="170" />
+    </g>
+    <g fill="#ffcf8a" opacity=".55">
+      <rect x="50" y="140" width="6" height="8" /><rect x="64" y="160" width="6" height="8" /><rect x="200" y="170" width="6" height="8" /><rect x="214" y="200" width="6" height="8" /><rect x="244" y="230" width="6" height="8" />
+    </g>
+    <g fill="#0b0710">
+      <rect x="96" y="268" width="104" height="30" rx="3" fill="#f227f5" opacity=".9" />
+      <rect x="104" y="296" width="4" height="40" /><rect x="188" y="296" width="4" height="40" />
+      <g>
+        <circle cx="20" cy="318" r="13" /><rect x="5" y="330" width="30" height="80" rx="12" />
+        <circle cx="58" cy="312" r="13" /><rect x="43" y="324" width="30" height="86" rx="12" />
+        <circle cx="96" cy="320" r="13" /><rect x="81" y="332" width="30" height="80" rx="12" />
+        <circle cx="134" cy="314" r="13" /><rect x="119" y="326" width="30" height="86" rx="12" />
+        <circle cx="172" cy="322" r="13" /><rect x="157" y="334" width="30" height="80" rx="12" />
+        <circle cx="210" cy="312" r="13" /><rect x="195" y="324" width="30" height="86" rx="12" />
+        <circle cx="248" cy="318" r="13" /><rect x="233" y="330" width="30" height="80" rx="12" />
+        <circle cx="286" cy="314" r="13" /><rect x="271" y="326" width="30" height="86" rx="12" />
+      </g>
+    </g>
+  </symbol>
+  <!-- a damaged street (evidence) -->
+  <symbol id="street" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
+    <rect width="300" height="400" fill="url(#smoke)" />
+    <g fill="#120d16">
+      <path d="M0 400V180h40l8 20 10-26 22 6v220z" /><path d="M86 400V140h44v40l-10 12 12 20v188z" />
+      <path d="M140 400V210l20-8 16 14 12-30 30 10v204z" /><path d="M224 400V160h76v240z" />
+    </g>
+    <g fill="#5d4652" opacity=".7"><ellipse cx="150" cy="120" rx="70" ry="30" /><ellipse cx="190" cy="90" rx="50" ry="24" /></g>
+    <g fill="#2a2030"><rect x="0" y="360" width="300" height="40" /><rect x="60" y="342" width="28" height="18" rx="3" /><rect x="190" y="348" width="40" height="12" rx="3" /></g>
+  </symbol>
+  <!-- storage provider -->
+  <symbol id="disk" viewBox="0 0 96 110">
+    <path d="M6 22v62c0 10 19 18 42 18s42-8 42-18V22" fill="#17131e" stroke="#6e6679" stroke-width="2.5" />
+    <ellipse cx="48" cy="22" rx="42" ry="16" fill="#1d1825" stroke="#6e6679" stroke-width="2.5" />
+    <path d="M6 52c0 10 19 18 42 18s42-8 42-18" fill="none" stroke="#6e6679" stroke-width="2" opacity=".6" />
+  </symbol>
+</svg>
+
+<!-- ───────────────────────────── 1 · NEWSROOMS ───────────────────────────── -->
+<section class="stage" id="newsroom">
+  <span class="abs label case-label" style="animation: inFade .6s ease-out .1s both, out .4s ease-in 11.9s forwards">For newsrooms</span>
+  <img class="abs brand" src="../public/brand/stamper-lockup-reverse.svg" alt="" style="animation: inFade .6s ease-out .1s both, out .4s ease-in 11.9s forwards" />
+
+  <!-- photographer's phone -->
+  <div class="abs" style="left: 530px; top: 96px; animation: moveA .9s cubic-bezier(.6,0,.2,1) 4.2s both, out .5s ease-in 8.3s forwards">
+    <div class="phone" style="animation: inUp .7s cubic-bezier(.2,.8,.2,1) .2s both">
+      <div class="screen">
+        <div class="notch"></div>
+        <svg aria-hidden="true" class="fill" viewBox="0 0 196 418" preserveAspectRatio="xMidYMid slice"><use href="#city" width="196" height="418" /></svg>
+        <div class="brackets" style="animation: focus .6s ease-out .7s both"><i></i><i></i><i></i><i></i></div>
+        <div class="shot" style="animation: flash .5s ease-out 1.4s both"></div>
+        <div class="sheet" style="animation: inUp .45s ease-out 1.9s both">
+          <span class="pill mag" style="animation: inPop .3s ease-out 2.0s both">● Stamped</span>
+          <div class="code" style="margin-top: 10px"><span class="type" style="--w: 12.3ch; animation: type .9s steps(11) 2.3s both">K3Q9-XA2M-7</span></div>
+          <div class="mono" style="margin-top: 8px; font-size: 9px; color: var(--subtle); letter-spacing: .08em; animation: inFade .4s ease-out 3.2s both">SIGNED ON THE DEVICE · 14:02:31</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- newspaper -->
+  <div class="abs" style="left: 600px; top: 100px; animation: inLeft .8s cubic-bezier(.2,.8,.2,1) 4.5s both, moveNP .9s cubic-bezier(.6,0,.2,1) 8.4s forwards, out .4s ease-in 11.9s forwards">
+    <div class="paper">
+      <div class="masthead">The Daily Ledger</div>
+      <div class="dateline"><span>TUESDAY, 3 NOVEMBER 2026</span><span>CITY EDITION</span></div>
+      <div class="hl" style="width: 92%"></div><div class="hl" style="width: 64%; margin-top: 6px"></div>
+      <div class="np-photo">
+        <svg aria-hidden="true" class="fill" viewBox="0 0 472 178" preserveAspectRatio="xMidYMid slice"><use href="#city" width="472" height="178" /></svg>
+        <div class="np-badge" style="animation: inPop .4s ease-out 5.6s both"><span class="mark" style="color: var(--paper-ink)"></span>K3Q9-XA2M-7</div>
+      </div>
+      <div style="display: flex; gap: 14px; margin-top: 10px; align-items: flex-start">
+        <div style="flex: 1">
+          <div class="mono" style="font-size: 9px; letter-spacing: .06em; color: #4f4a5c">Photo: staff photographer · stamped at capture</div>
+          <div class="bar" style="width: 96%"></div><div class="bar" style="width: 90%"></div><div class="bar" style="width: 94%"></div><div class="bar" style="width: 70%"></div>
+        </div>
+        <div style="animation: inPop .4s ease-out 6.0s both; text-align: center">
+          <div class="qr" id="qr-small"></div>
+          <div class="mono" style="font-size: 7.5px; margin-top: 4px; letter-spacing: .08em">SCAN TO CHECK</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- reader's phone -->
+  <div class="abs" style="left: 860px; top: 96px; animation: inLeft .8s cubic-bezier(.2,.8,.2,1) 8.7s both, out .4s ease-in 11.9s forwards">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="fill" style="background: #111; display: grid; place-items: center; animation: out .3s ease-in 10.1s forwards">
+          <div class="qr" id="qr-big" style="transform: rotate(-4deg)"></div>
+          <div class="brackets" style="inset: 70px 24px"><i></i><i></i><i></i><i></i></div>
+          <div class="scanline" style="--h: 300px; top: 60px; animation: scan 1.1s ease-in-out 9.1s both"></div>
+        </div>
+        <div class="fill" style="padding: 38px 14px 14px; animation: inFade .3s ease-out 10.1s both">
+          <div style="font: 600 13px/1 'Instrument Sans'">stamper <span style="font-weight: 400; color: var(--subtle)">explorer</span></div>
+          <div style="margin-top: 16px"><span class="pill ok" style="animation: inPop .35s ease-out 10.3s both">✓ ORIGINAL</span></div>
+          <div class="code" style="margin-top: 12px; font-size: 15px">K3Q9-XA2M-7</div>
+          <div style="margin-top: 12px">
+            <div class="row" style="animation: inUp .3s ease-out 10.6s both"><span class="tick">✓</span>Registered onchain<br />3 Nov 2026 · 14:02 UTC</div>
+            <div class="row" style="animation: inUp .3s ease-out 10.85s both"><span class="tick">✓</span>Device signature checked</div>
+            <div class="row" style="animation: inUp .3s ease-out 11.1s both"><span class="tick">✓</span>Stored on Filecoin · 2 copies</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="abs caption" style="animation: inUp .5s ease-out .5s both, outUp .35s ease-in 4.0s forwards">A photojournalist takes the picture. <em>The app stamps it on the spot.</em></div>
+  <div class="abs caption" style="animation: inUp .5s ease-out 4.6s both, outUp .35s ease-in 8.3s forwards">The newsroom publishes it with its <em>stamp code and QR code.</em></div>
+  <div class="abs caption" style="animation: inUp .5s ease-out 8.9s both, outUp .35s ease-in 11.9s forwards">Any reader can <em>check it onchain</em> in seconds.</div>
+  <div class="abs end" style="animation: inFade .6s ease-out 12.3s both">
+    <img class="lockup" src="../public/brand/stamper-lockup-reverse.svg" alt="" />
+    <div class="tag-line">Open, decentralized media attestation</div>
+    <div class="powered"><img src="../public/brand/filecoin-mark.svg" alt="" /><span class="by">Powered by</span><span class="nm">Filecoin</span></div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── 2 · HUMAN-RIGHTS EVIDENCE ───────────────────────────── -->
+<section class="stage" id="evidence">
+  <span class="abs label case-label" style="animation: inFade .6s ease-out .1s both, out .4s ease-in 11.9s forwards">For human-rights documenters</span>
+  <img class="abs brand" src="../public/brand/stamper-lockup-reverse.svg" alt="" style="animation: inFade .6s ease-out .1s both, out .4s ease-in 11.9s forwards" />
+
+  <!-- documenter's phone, recording -->
+  <div class="abs" style="left: 530px; top: 96px; animation: moveA .9s cubic-bezier(.6,0,.2,1) 4.2s both, out .5s ease-in 8.3s forwards">
+    <div class="phone" style="animation: inUp .7s cubic-bezier(.2,.8,.2,1) .2s both">
+      <div class="screen">
+        <div class="notch"></div>
+        <svg aria-hidden="true" class="fill" viewBox="0 0 196 418" preserveAspectRatio="xMidYMid slice"><use href="#street" width="196" height="418" /></svg>
+        <div class="abs rec" style="animation: inFade .3s ease-out .7s both"><b style="animation: blink 1s steps(1) .7s infinite both"></b><span class="tc" style="animation: countSec 3s linear .8s both"></span></div>
+        <div class="brackets" style="animation: focus .6s ease-out .6s both"><i></i><i></i><i></i><i></i></div>
+        <div class="sheet" style="animation: inUp .45s ease-out 2.4s both">
+          <span class="pill mag" style="animation: inPop .3s ease-out 2.5s both">● Stamped</span>
+          <div class="code" style="margin-top: 10px"><span class="type" style="--w: 12.3ch; animation: type .9s steps(11) 2.7s both">K75V-W3T7-V</span></div>
+          <div class="mono" style="margin-top: 8px; font-size: 9px; color: var(--subtle); letter-spacing: .08em; animation: inFade .4s ease-out 3.5s both">VIDEO · 12 S · SIGNED ON THE DEVICE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- chain + two providers + days -->
+  <div class="abs" style="left: 560px; top: 104px; width: 600px; height: 440px; animation: inFade .5s ease-out 4.6s both, out .5s ease-in 8.3s forwards">
+    <svg aria-hidden="true" class="abs" style="left: 0; top: 0" width="600" height="440" viewBox="0 0 600 440">
+      <g fill="#17131e" stroke="#6e6679" stroke-width="2">
+        <rect x="70" y="20" width="56" height="56" rx="9" /><rect x="170" y="20" width="56" height="56" rx="9" /><rect x="270" y="20" width="56" height="56" rx="9" />
+      </g>
+      <path d="M126 48h44M226 48h44" stroke="#6e6679" stroke-width="3" />
+      <path d="M326 48h44" stroke="#6e6679" stroke-width="3" stroke-dasharray="44" style="--len: 44; animation: draw .4s ease-out 5.3s both" />
+      <g style="animation: inPop .45s cubic-bezier(.3,1.5,.5,1) 5.0s both; transform-box: fill-box; transform-origin: center">
+        <rect x="370" y="20" width="56" height="56" rx="9" fill="#f227f5" /><path d="M398 32l16 16-16 16-16-16z" fill="#120e1a" />
+      </g>
+      <path d="M398 80 C398 150 170 150 170 220 M398 80 C398 150 420 150 420 220" fill="none" stroke="#f227f5" stroke-width="2.5" stroke-dasharray="6 7" style="animation: inFade .3s ease-out 5.6s both, dash .6s linear 5.6s 5" />
+      <circle cx="170" cy="282" r="64" fill="none" stroke="#4fd6a0" stroke-width="2" style="transform-box: fill-box; transform-origin: center; animation: pulse .9s ease-out 6.2s 3 both" />
+      <circle cx="420" cy="282" r="64" fill="none" stroke="#4fd6a0" stroke-width="2" style="transform-box: fill-box; transform-origin: center; animation: pulse .9s ease-out 6.35s 3 both" />
+      <use href="#disk" x="122" y="226" width="96" height="110" />
+      <use href="#disk" x="372" y="226" width="96" height="110" />
+      <text x="170" y="364" fill="#b0aabb" font-family="Martian Mono" font-size="13" letter-spacing="1.6" text-anchor="middle">PROVIDER A</text>
+      <text x="420" y="364" fill="#b0aabb" font-family="Martian Mono" font-size="13" letter-spacing="1.6" text-anchor="middle">PROVIDER B</text>
+      <text x="226" y="236" fill="#4fd6a0" font-family="Martian Mono" font-size="13" font-weight="700" style="animation: inFade .3s ease-out 6.3s both">PDP ✓</text>
+      <text x="476" y="236" fill="#4fd6a0" font-family="Martian Mono" font-size="13" font-weight="700" style="animation: inFade .3s ease-out 6.45s both">PDP ✓</text>
+    </svg>
+    <div class="abs mono" style="left: 0; right: 0; top: 396px; text-align: center; font-size: 15px; letter-spacing: .14em; color: var(--muted); animation: inFade .3s ease-out 6.1s both">PROVEN EVERY DAY · DAY <span class="day" style="color: var(--ok); animation: countDay 2.0s cubic-bezier(.5,0,.6,1) 6.2s both"></span></div>
+  </div>
+
+  <!-- years later: the case file -->
+  <div class="abs panel" style="left: 240px; top: 168px; width: 800px; padding: 32px 36px; animation: inUp .7s cubic-bezier(.2,.8,.2,1) 8.6s both, out .4s ease-in 11.9s forwards">
+    <div style="display: flex; justify-content: space-between; align-items: center">
+      <span class="label" style="color: var(--muted)">Case file · Exhibit 14 · 3 Nov 2029</span>
+      <span class="code" style="font-size: 15px">K75V-W3T7-V</span>
+    </div>
+    <div style="margin-top: 22px">
+      <div class="hashrow"><span>file</span>
+        <span class="hg" style="animation: glowOk .3s ease-out 9.5s both">4c1e</span><span class="hg" style="animation: glowOk .3s ease-out 9.7s both">92ab</span><span class="hg" style="animation: glowOk .3s ease-out 9.9s both">07d3</span><span class="hg" style="animation: glowOk .3s ease-out 10.1s both">e58f</span><span class="hg" style="animation: glowOk .3s ease-out 10.3s both">a610</span>
+      </div>
+      <div class="hashrow"><span>chain</span>
+        <span class="hg" style="animation: glowOk .3s ease-out 9.5s both">4c1e</span><span class="hg" style="animation: glowOk .3s ease-out 9.7s both">92ab</span><span class="hg" style="animation: glowOk .3s ease-out 9.9s both">07d3</span><span class="hg" style="animation: glowOk .3s ease-out 10.1s both">e58f</span><span class="hg" style="animation: glowOk .3s ease-out 10.3s both">a610</span>
+      </div>
+    </div>
+    <div style="display: flex; gap: 16px; align-items: center; margin-top: 22px; animation: inPop .4s ease-out 10.7s both">
+      <span class="pill ok" style="height: 30px; font-size: 12px; padding: 0 14px">✓ ORIGINAL · NOT A BYTE CHANGED</span>
+      <span class="mono" style="font-size: 12px; color: var(--muted); letter-spacing: .06em">Recorded 3 Nov 2026 · 09:41 UTC</span>
+    </div>
+  </div>
+
+  <div class="abs caption" style="animation: inUp .5s ease-out .5s both, outUp .35s ease-in 4.0s forwards">A documenter records what happened. <em>It is stamped as it is filmed.</em></div>
+  <div class="abs caption" style="animation: inUp .5s ease-out 4.6s both, outUp .35s ease-in 8.3s forwards">Filecoin keeps two copies and <em>proves every day</em> that they are still there.</div>
+  <div class="abs caption" style="animation: inUp .5s ease-out 8.9s both, outUp .35s ease-in 11.9s forwards">Years later, anyone can show when it was recorded <em>and that it was not altered.</em></div>
+  <div class="abs end" style="animation: inFade .6s ease-out 12.3s both">
+    <img class="lockup" src="../public/brand/stamper-lockup-reverse.svg" alt="" />
+    <div class="tag-line">Open, decentralized media attestation</div>
+    <div class="powered"><img src="../public/brand/filecoin-mark.svg" alt="" /><span class="by">Powered by</span><span class="nm">Filecoin</span></div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── 3 · PUBLIC FIGURES AND CREATORS ───────────────────────────── -->
+<section class="stage" id="viral">
+  <span class="abs label case-label" style="animation: inFade .6s ease-out .1s both, out .4s ease-in 11.9s forwards">For public figures and creators</span>
+  <img class="abs brand" src="../public/brand/stamper-lockup-reverse.svg" alt="" style="animation: inFade .6s ease-out .1s both, out .4s ease-in 11.9s forwards" />
+
+  <!-- the stamped photo -->
+  <div class="abs" style="left: 380px; top: 110px; width: 520px; animation: moveCard .8s cubic-bezier(.6,0,.2,1) 3.9s both, out .4s ease-in 7.6s forwards">
+    <div style="animation: inUp .7s cubic-bezier(.2,.8,.2,1) .2s both">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px">
+        <span style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #f227f5, #f6a35a)"></span>
+        <span style="font: 600 17px/1 'Instrument Sans'">@a.public.figure</span>
+        <span class="pill mag" style="margin-left: auto; animation: inPop .3s ease-out 1.4s both">● Stamped</span>
+      </div>
+      <div class="photo-card" style="height: 346px; position: relative">
+        <img src="assets/harbour.jpg" alt="" />
+        <div class="np-badge" style="animation: inPop .4s ease-out 1.6s both"><span class="mark" style="color: var(--paper-ink)"></span>T1AQ-QJ5V-3</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- copies spreading -->
+  <div class="abs copy" style="left: 120px; top: 150px; animation: inPop .45s cubic-bezier(.3,1.4,.5,1) 4.5s both, out .4s ease-in 7.6s forwards"><div class="ph"><img src="assets/harbour.jpg" alt="" style="filter: saturate(.85) contrast(.95)" /></div><div class="tag">Resized · 640 px</div></div>
+  <div class="abs copy" style="left: 300px; top: 380px; animation: inPop .45s cubic-bezier(.3,1.4,.5,1) 4.75s both, out .4s ease-in 7.6s forwards"><div class="ph"><img src="assets/harbour.jpg" alt="" style="filter: blur(.6px) saturate(.8)" /></div><div class="tag">Re-encoded · chat app</div></div>
+  <div class="abs copy" style="left: 840px; top: 140px; animation: inPop .45s cubic-bezier(.3,1.4,.5,1) 5.0s both, out .4s ease-in 7.6s forwards"><div class="ph"><img src="assets/harbour.jpg" alt="" style="object-position: 30% 50%; transform: scale(1.35)" /></div><div class="tag">Cropped · social post</div></div>
+  <div class="abs copy" style="left: 1010px; top: 330px; animation: inPop .45s cubic-bezier(.3,1.4,.5,1) 5.25s both, out .4s ease-in 7.6s forwards"><div class="ph"><img src="assets/harbour.jpg" alt="" style="filter: saturate(.9) brightness(.95)" /></div><div class="tag">Screenshot</div></div>
+  <!-- the edited copy: it travels to the drop zone -->
+  <div class="abs copy edited" style="left: 640px; top: 390px; --tx: -330px; --ty: -238px; z-index: 3; animation: inPop .45s cubic-bezier(.3,1.4,.5,1) 5.6s both, toDrop .8s cubic-bezier(.6,0,.2,1) 7.8s both, out .3s ease-in 8.7s forwards">
+    <div class="ph"><img src="assets/harbour-edited.jpg" alt="" /></div><div class="tag">Edited · a boat removed</div>
+  </div>
+
+  <!-- Explorer -->
+  <div class="abs panel" style="left: 150px; top: 108px; width: 980px; height: 440px; padding: 24px; animation: inFade .4s ease-out 7.7s both, out .4s ease-in 11.9s forwards">
+    <div style="display: flex; justify-content: space-between; align-items: center">
+      <div style="font: 600 16px/1 'Instrument Sans'">stamper <span style="font-weight: 400; color: var(--subtle)">explorer</span></div>
+      <span class="label" style="color: var(--subtle)">Check a copy</span>
+    </div>
+    <!-- drop zone -->
+    <div class="abs" style="left: 24px; top: 66px; width: 440px; height: 350px; border: 2px dashed var(--line-strong); border-radius: 12px; display: grid; place-items: center; color: var(--subtle); font: 500 14px/1 'Martian Mono'; letter-spacing: .1em; animation: out .3s ease-in 8.7s forwards">DROP A COPY HERE</div>
+    <!-- result: the copy with the change marked -->
+    <div class="abs" style="left: 24px; top: 66px; width: 440px; height: 293px; border-radius: 10px; overflow: hidden; animation: inFade .3s ease-out 8.7s both">
+      <img src="assets/harbour-edited.jpg" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block" />
+      <div class="abs" style="left: 75%; top: 61%; width: 16%; height: 25%; border: 3px solid var(--crit); border-radius: 8px; background: rgba(255,107,116,.18); box-shadow: 0 0 24px rgba(255,107,116,.6); animation: redbox .6s ease-out 10.2s both"></div>
+    </div>
+    <div class="abs mono" style="left: 24px; top: 372px; font-size: 12px; color: var(--muted); letter-spacing: .04em; animation: inFade .3s ease-out 10.5s both">Pixels that differ: 0.16 % · marked in red</div>
+    <div class="abs" style="left: 500px; top: 66px; right: 24px">
+      <div class="mono" style="font-size: 12px; color: var(--subtle); letter-spacing: .1em; animation: inFade .3s ease-out 9.0s both, out .2s ease-in 9.5s forwards">SEARCHING BY PERCEPTUAL HASH…</div>
+      <div style="animation: inUp .4s ease-out 9.5s both">
+        <span class="pill" style="height: 30px; font-size: 11px; padding: 0 14px; background: #2e2310; color: #f2b24f; border: 1px solid #5a4214">≈ RELATED TO T1AQ-QJ5V-3 — COMPARE</span>
+      </div>
+      <div style="margin-top: 18px; font: 600 22px/1.25 'Instrument Sans'; animation: inUp .4s ease-out 9.7s both">Your copy differs from the original</div>
+      <div style="margin-top: 14px">
+        <div class="row" style="animation: inUp .3s ease-out 9.95s both"><span class="tick">✓</span>Found by its perceptual hash · 4 bits away</div>
+        <div class="row" style="animation: inUp .3s ease-out 10.15s both"><span class="tick">✓</span>Original registered 3 Nov 2026, stored on Filecoin</div>
+        <div class="row" style="animation: inUp .3s ease-out 10.35s both"><span class="tick" style="color: var(--crit)">●</span>The change is drawn on your copy</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="abs caption" style="animation: inUp .5s ease-out .5s both, outUp .35s ease-in 3.8s forwards">A public figure <em>stamps a photo</em> before posting it.</div>
+  <div class="abs caption" style="animation: inUp .5s ease-out 4.4s both, outUp .35s ease-in 7.6s forwards">Copies spread, resized and re-encoded. <em>One is edited.</em></div>
+  <div class="abs caption" style="animation: inUp .5s ease-out 8.2s both, outUp .35s ease-in 11.9s forwards">Stamper Explorer <em>finds the original</em> and shows what changed.</div>
+  <div class="abs end" style="animation: inFade .6s ease-out 12.3s both">
+    <img class="lockup" src="../public/brand/stamper-lockup-reverse.svg" alt="" />
+    <div class="tag-line">Open, decentralized media attestation</div>
+    <div class="powered"><img src="../public/brand/filecoin-mark.svg" alt="" /><span class="by">Powered by</span><span class="nm">Filecoin</span></div>
+  </div>
+</section>
+
+<script>
+  // which case to show
+  const c = new URLSearchParams(location.search).get("case") || "newsroom";
+  document.getElementById(c)?.classList.add("on");
+  // a fixed QR-like pattern (decorative; three finder squares + seeded modules)
+  function qr(el, size, cell) {
+    let s = 7;
+    const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    const n = 25;
+    const finder = (x, y) => [x, y, x + 6, y + 6];
+    const fs = [finder(0, 0), finder(n - 7, 0), finder(0, n - 7)];
+    const inF = (x, y) => fs.some(([a, b, c, d]) => x >= a && x <= c && y >= b && y <= d);
+    let r = "";
+    for (const [a, b] of fs.map(([a, b]) => [a, b])) {
+      r += `<rect x="${a}" y="${b}" width="7" height="7" fill="#120e1a"/><rect x="${a + 1}" y="${b + 1}" width="5" height="5" fill="#fff"/><rect x="${a + 2}" y="${b + 2}" width="3" height="3" fill="#120e1a"/>`;
+    }
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!inF(x, y) && rnd() > 0.52) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="#120e1a"/>`;
+    el.innerHTML = `<svg aria-hidden="true" viewBox="-1 -1 ${n + 2} ${n + 2}" width="${size}" height="${size}" shape-rendering="crispEdges"><rect x="-1" y="-1" width="${n + 2}" height="${n + 2}" fill="#fff"/>${r}</svg>`;
+  }
+  const small = document.getElementById("qr-small");
+  if (small) qr(small, 62);
+  const big = document.getElementById("qr-big");
+  if (big) qr(big, 150);
+</script>
+</body>
+</html>

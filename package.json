@@ -1,0 +1,27 @@
+{
+  "name": "stamper-explorer",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Stamper Explorer: the public check site. Stamp pages by code and QR, compare a copy with the stored original, check any file.",
+  "type": "module",
+  "license": "MIT OR Apache-2.0",
+  "packageManager": "pnpm@10.32.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @stamper/explorer dev",
+    "build": "pnpm -r --if-present build",
+    "test": "pnpm -r --if-present test",
+    "test:e2e": "pnpm --filter @stamper/explorer test:e2e",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "sync-protocol": "scripts/sync-protocol.sh"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

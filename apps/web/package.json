@@ -1,0 +1,46 @@
+{
+  "name": "@stamper/explorer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stamper Explorer: the public check site (Next.js App Router)",
+  "scripts": {
+    "prepare-assets": "node scripts/copy-wasm.mjs",
+    "dev": "node scripts/copy-wasm.mjs && next dev",
+    "build": "node scripts/copy-wasm.mjs && next build",
+    "start": "next start",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "scripts/e2e.sh",
+    "fixture-server": "tsx tests/fixtures/server.ts"
+  },
+  "dependencies": {
+    "@filoz/synapse-core": "catalog:",
+    "@noble/curves": "catalog:",
+    "@noble/hashes": "catalog:",
+    "@stamper/contracts-abi": "^0.1.0",
+    "@stamper/core": "^0.1.0",
+    "barcode-detector": "catalog:",
+    "hash-wasm": "catalog:",
+    "next": "catalog:",
+    "pixelmatch": "catalog:",
+    "react": "catalog:",
+    "react-compare-slider": "catalog:",
+    "react-dom": "catalog:",
+    "ssim.js": "catalog:",
+    "viem": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "msw": "catalog:",
+    "qrcode": "catalog:",
+    "@types/qrcode": "^1.5.5",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,548 @@
+/* "How a stamp works": three cards with animated scenes (components/HowItWorks.tsx).
+   Base styles are each scene's final state; the 6 s cycle runs only in .in-view and without
+   reduced motion. Scenes play in order: capture 0–2.2 s, anchor 1.9–4 s, check 3.8–5.5 s. */
+
+.how-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr) 36px minmax(0, 1fr);
+  align-items: stretch;
+}
+.how-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 16px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-raised);
+}
+.how-step h3 {
+  margin: 0;
+}
+.how-step p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 22px;
+}
+.how-scene {
+  margin-bottom: 8px;
+  border-radius: var(--radius-sm);
+  background:
+    radial-gradient(120% 100% at 50% 0%, var(--magenta-tint) 0%, transparent 60%),
+    var(--paper-sunken);
+  overflow: hidden;
+}
+.how-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* arrows between the cards */
+.how-arrow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--magenta);
+}
+.how-arrow-line {
+  position: absolute;
+  left: 2px;
+  right: 12px;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: repeating-linear-gradient(90deg, var(--magenta) 0 4px, transparent 4px 8px);
+  background-size: 16px 2px;
+}
+.how-arrow svg {
+  position: relative;
+  margin-left: auto;
+}
+
+/* ── scene primitives (final state) ── */
+.how-svg .s-photo {
+  fill: var(--paper-raised);
+  stroke: var(--line);
+}
+.how-svg .s-sun {
+  fill: var(--magenta);
+  opacity: 0.85;
+}
+.how-svg .s-hill {
+  fill: var(--line-strong);
+  opacity: 0.55;
+}
+.how-svg .s-bracket {
+  fill: none;
+  stroke: var(--magenta);
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.how-svg .s-scan {
+  fill: var(--magenta);
+  opacity: 0;
+}
+.how-svg .s-mono {
+  font: 500 9.5px / 1 var(--font-mono);
+  fill: var(--ink);
+  letter-spacing: 0.02em;
+}
+.how-svg .s-small {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+.how-svg .s-muted {
+  fill: var(--ink-subtle);
+}
+.how-svg .s-cover {
+  fill: var(--paper-sunken);
+  transform: translateX(140px);
+}
+.how-svg .s-pill {
+  fill: var(--magenta);
+}
+.how-svg .s-pill-text {
+  font: 600 7.5px / 1 var(--font-mono);
+  letter-spacing: 0.1em;
+  fill: var(--on-magenta);
+}
+.how-svg .s-block {
+  fill: var(--paper-raised);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+.how-svg .s-chain,
+.how-svg .s-link {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 2;
+  stroke-dasharray: 16;
+}
+.how-svg .s-block-new {
+  fill: var(--magenta);
+}
+.how-svg .s-diamond {
+  fill: var(--on-magenta);
+}
+.how-svg .s-flow {
+  fill: none;
+  stroke: var(--magenta);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+}
+.how-svg .s-disk {
+  fill: var(--paper-raised);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+.how-svg .s-ring {
+  fill: none;
+  stroke: var(--original);
+  stroke-width: 1.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.how-svg .s-pdp {
+  font: 600 7.5px / 1 var(--font-mono);
+  letter-spacing: 0.06em;
+  fill: var(--original);
+}
+.how-svg .s-group {
+  fill: var(--original-tint);
+}
+.how-svg .s-check-circle {
+  fill: var(--original-tint);
+  stroke: var(--original);
+  stroke-width: 2;
+  stroke-dasharray: 101;
+  transform: rotate(-90deg);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.how-svg .s-check {
+  fill: none;
+  stroke: var(--original);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 30;
+}
+.how-svg .s-ok {
+  fill: var(--original);
+  font-weight: 600;
+}
+
+/* ── the cycle ── */
+@media (prefers-reduced-motion: no-preference) {
+  .how.in-view .s-bracket {
+    animation: how-focus 6s ease-out infinite;
+  }
+  .how.in-view .s-scan {
+    animation: how-scan 6s ease-in-out infinite;
+  }
+  .how.in-view .s-cover {
+    animation: how-reveal 6s steps(16, end) infinite;
+  }
+  .how.in-view .s-signed {
+    animation: how-pop 6s ease-out infinite;
+  }
+  .how.in-view .s-newblock {
+    animation: how-drop 6s cubic-bezier(0.3, 1.4, 0.5, 1) infinite;
+  }
+  .how.in-view .s-link {
+    animation: how-link 6s ease-out infinite;
+  }
+  .how.in-view .s-flow {
+    animation:
+      how-flow-on 6s ease-out infinite,
+      how-dash 0.7s linear infinite;
+  }
+  .how.in-view .s-ring {
+    animation: how-ring 6s ease-out infinite;
+  }
+  .how.in-view .s-pdp {
+    animation: how-pdp 6s ease-out infinite;
+  }
+  .how.in-view .s-g1,
+  .how.in-view .s-g2,
+  .how.in-view .s-g3 {
+    animation: how-group 6s ease-out infinite;
+  }
+  .how.in-view .s-g2 {
+    animation-delay: 0.25s;
+  }
+  .how.in-view .s-g3 {
+    animation-delay: 0.5s;
+  }
+  .how.in-view .s-check-circle {
+    animation: how-circle 6s ease-out infinite;
+  }
+  .how.in-view .s-check {
+    animation: how-tick 6s ease-out infinite;
+  }
+  .how.in-view .s-ok {
+    animation: how-ok 6s ease-out infinite;
+  }
+  .how.in-view .how-arrow-line {
+    animation: how-march 0.9s linear infinite;
+  }
+}
+
+@keyframes how-focus {
+  0% {
+    transform: scale(1.12);
+    opacity: 0.3;
+  }
+  7%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes how-scan {
+  0%,
+  3% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.9;
+  }
+  22% {
+    transform: translateY(66px);
+    opacity: 0.9;
+  }
+  25%,
+  100% {
+    transform: translateY(66px);
+    opacity: 0;
+  }
+}
+@keyframes how-reveal {
+  0%,
+  16% {
+    transform: translateX(0);
+  }
+  30%,
+  100% {
+    transform: translateX(140px);
+  }
+}
+@keyframes how-pop {
+  0%,
+  30% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  36%,
+  93% {
+    opacity: 1;
+    transform: none;
+  }
+  99%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes how-drop {
+  0%,
+  32% {
+    opacity: 0;
+    transform: translateY(-22px);
+  }
+  40%,
+  93% {
+    opacity: 1;
+    transform: none;
+  }
+  99%,
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+@keyframes how-link {
+  0%,
+  38% {
+    stroke-dashoffset: 16;
+  }
+  44%,
+  93% {
+    stroke-dashoffset: 0;
+  }
+  99%,
+  100% {
+    stroke-dashoffset: 16;
+  }
+}
+@keyframes how-flow-on {
+  0%,
+  42% {
+    opacity: 0;
+  }
+  47%,
+  93% {
+    opacity: 1;
+  }
+  99%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes how-dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+@keyframes how-ring {
+  0%,
+  50% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  54% {
+    opacity: 0.8;
+  }
+  68%,
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+@keyframes how-pdp {
+  0%,
+  56% {
+    opacity: 0;
+  }
+  60%,
+  93% {
+    opacity: 1;
+  }
+  99%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes how-group {
+  0%,
+  63% {
+    fill-opacity: 0;
+  }
+  66%,
+  93% {
+    fill-opacity: 1;
+  }
+  99%,
+  100% {
+    fill-opacity: 0;
+  }
+}
+@keyframes how-circle {
+  0%,
+  74% {
+    stroke-dashoffset: 101;
+    fill-opacity: 0;
+  }
+  82% {
+    stroke-dashoffset: 0;
+    fill-opacity: 0;
+  }
+  86%,
+  93% {
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+  }
+  99%,
+  100% {
+    stroke-dashoffset: 101;
+    fill-opacity: 0;
+  }
+}
+@keyframes how-tick {
+  0%,
+  81% {
+    stroke-dashoffset: 30;
+  }
+  86%,
+  93% {
+    stroke-dashoffset: 0;
+  }
+  99%,
+  100% {
+    stroke-dashoffset: 30;
+  }
+}
+@keyframes how-ok {
+  0%,
+  83% {
+    opacity: 0;
+  }
+  87%,
+  93% {
+    opacity: 1;
+  }
+  99%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes how-march {
+  to {
+    background-position: 16px 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .how-steps {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+  }
+  .how-arrow {
+    height: 32px;
+    transform: rotate(90deg);
+    width: 32px;
+    justify-self: center;
+  }
+}
+
+/* ── "Who it's for": use-case videos (components/UseCases.tsx) ── */
+.usecases {
+  margin-top: 8px;
+}
+.uc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.uc-player {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0d0a12;
+  box-shadow:
+    var(--shadow-raised),
+    0 24px 60px rgba(18, 14, 26, 0.18);
+}
+.uc-player video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.uc-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.uc-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+.uc-tab:hover {
+  border-left-color: var(--magenta);
+}
+.uc-tab.active {
+  background: var(--paper-raised);
+  border-left-color: var(--magenta);
+  box-shadow: var(--shadow-raised);
+}
+.uc-tab-label {
+  font: 500 10px / 14px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--magenta-text);
+}
+.uc-tab-title {
+  font: 600 16px / 22px var(--font-sans);
+}
+.uc-tab-body {
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--ink-muted);
+}
+.uc-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--magenta-tint);
+}
+.uc-progress span {
+  display: block;
+  height: 100%;
+  background: var(--magenta);
+  transform-origin: left;
+  transition: transform 250ms linear;
+}
+@media (max-width: 900px) {
+  .uc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
